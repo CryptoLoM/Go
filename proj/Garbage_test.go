@@ -1,32 +1,33 @@
 package main
 
 import (
-    
     "runtime"
     "testing"
-
-	
 )
+
 func TestGarbageCollector(t *testing.T) {
-    // Нагенеруємо сміття
+    // Створення об'єктів для генерації сміття
+    var garbage [][]byte
     for i := 0; i < 10000; i++ {
-        _ = make([]byte, 1024)
+        // Створення сміття (повторювані байтові зрізи)
+        garbage = append(garbage, make([]byte, 1024*1024))
     }
 
-    // Запам'ятовуємо початковий розмір хіпу
-    var stats runtime.MemStats
-    runtime.ReadMemStats(&stats)
-    heapSizeBefore := stats.HeapAlloc
+    // Вимірюємо розмір хіпу до виклику збірки сміття
+    memBefore := runtime.MemStats{}
+    runtime.ReadMemStats(&memBefore)
+    heapBefore := memBefore.HeapAlloc
 
-    // Викликаємо garbage collector
+    // Викликаємо збірку сміття
     runtime.GC()
 
-    // Знову зчитуємо розмір хіпу після збирання сміття
-    runtime.ReadMemStats(&stats)
-    heapSizeAfter := stats.HeapAlloc
+    // Вимірюємо розмір хіпу після виклику збірки сміття
+    memAfter := runtime.MemStats{}
+    runtime.ReadMemStats(&memAfter)
+    heapAfter := memAfter.HeapAlloc
 
-    // Перевірка, чи розмір хіпу зменшився
-    if heapSizeAfter >= heapSizeBefore {
-        t.Errorf("Помилка: очікувалось, що розмір хіпу зменшиться після виклику garbage collector")
+    // Перевірка, що після збірки сміття пам'ять вивільнилась (розмір хіпу зменшився)
+    if heapAfter >= heapBefore {
+        t.Errorf("Помилка: очікувалось, що розмір хіпу після збірки сміття буде меншим, але фактичний розмір хіпу після збірки: %d, розмір хіпу до збірки: %d", heapAfter, heapBefore)
     }
 }
