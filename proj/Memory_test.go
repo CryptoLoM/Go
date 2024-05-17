@@ -1,47 +1,70 @@
 package main
 
 import (
-    "fmt"
-    "testing"
+	"fmt"
+	"runtime"
+	"testing"
 )
-//створюємо клас
+
 type Human struct {
-    Name   string
-    Age    int
-    Height int
-    Weight float64
+	Name   string
+	Age    int
+	Height int
+	Weight float64
 }
 
-func TestStackToHeap(t *testing.T) {
-    // Створення якогось тіпочка на стеку
-    human := Human{"John", 30, 182, 80.5}
-    
-    // Отримання адреси пам'яті тіпочка до створення
-    stackBoundaryBefore := fmt.Sprintf("%p", &human)
-
-    // Отримання адреси пам'яті тіпочка після створення
-    stackBoundaryAfter := fmt.Sprintf("%p", &human)
-
-    // Перевірка, чи різниця на хіпі до і після створення буде нульовою
-    if stackBoundaryBefore != stackBoundaryAfter {
-        t.Errorf("Помилка: різниця на хіпі до і після створення тіпочка на стеці не нульова")
-    }
+func measureHeap() uint64 {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	return m.HeapAlloc
 }
-func TestHeapToStack(t *testing.T) {
-    // Створення тіпочка на купі (використовуючи вказівник)
-    humanPtr := &Human{"Jane", 25, 167, 53}
 
-    // Отримання адреси пам'яті тіпочка на купі
-    heapBoundaryBefore := fmt.Sprintf("%p", humanPtr)
+func TestHeapAllocation(t *testing.T) {
+	// Заміряємо початковий обсяг хіпу
+	initialHeap := measureHeap()
+	fmt.Printf("Initial Heap: %d bytes\n", initialHeap)
 
-    // Створення тіпочка на стеку
-    human := Human{"John", 30, 182, 80.5}
+	// Створюємо об'єкт на стеку
+	humanOnStack := Human{
+		Name:   "John",
+		Age:    30,
+		Height: 180,
+		Weight: 75.5,
+	}
 
-    // Отримання адреси пам'яті тіпочка на стеку
-    stackBoundaryBefore := fmt.Sprintf("%p", &human)
+	// Використовуємо змінну humanOnStack, щоб уникнути помилки компіляції
+	fmt.Printf("Human on Stack: %+v\n", humanOnStack)
 
-    // Перевірка, чи різниця між адресами пам'яті до і після створення не нульова
-    if stackBoundaryBefore == heapBoundaryBefore {
-        t.Errorf("Помилка: різниця на хіпі до і після створення тіпочка на хіпі нульова")
-    }
+	// Збираємо сміття, щоб точніше виміряти хіп після створення об'єкта на стеку
+	runtime.GC()
+
+	stackHeap := measureHeap()
+	fmt.Printf("Heap after stack allocation: %d bytes\n", stackHeap)
+
+	// Перевіряємо, що обсяг хіпу не змінився
+	if stackHeap != initialHeap {
+		t.Errorf("Heap allocation changed after stack allocation. Initial: %d, After: %d", initialHeap, stackHeap)
+	}
+
+	// Створюємо об'єкт на хіпі
+	humanOnHeap := &Human{
+		Name:   "Jane",
+		Age:    25,
+		Height: 165,
+		Weight: 60.0,
+	}
+
+	// Використовуємо змінну humanOnHeap, щоб уникнути помилки компіляції
+	fmt.Printf("Human on Heap: %+v\n", *humanOnHeap)
+
+	// Збираємо сміття, щоб точніше виміряти хіп після створення об'єкта на хіпі
+	runtime.GC()
+
+	heapHeap := measureHeap()
+	fmt.Printf("Heap after heap allocation: %d bytes\n", heapHeap)
+
+	// Перевіряємо, що обсяг хіпу збільшився
+	if heapHeap <= stackHeap {
+		t.Errorf("Heap allocation did not increase after heap allocation. After stack allocation: %d, After heap allocation: %d", stackHeap, heapHeap)
+	}
 }
